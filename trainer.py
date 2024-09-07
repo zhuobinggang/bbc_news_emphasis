@@ -46,6 +46,7 @@ def beutiful_print_result(step, dev_res, test_res):
 class ModelWrapper:
     def __init__(self, m):
         self.m = m
+        self.model = m
     def loss(self, item):
         return self.m.get_loss(item)
     def opter_step(self):
@@ -98,6 +99,9 @@ class Score_Plotter():
     def plot(self, path, name1 = 'dev', name2 = 'test'):
         draw_line_chart(range(len(self.l1)), [self.l1, self.l2], [name1, name2], path = path)
 
+def fake_test_score():
+    return -1.0, -1.0, -1.0, -1.0
+
 class Logger:
     def __init__(self, model_name):
         self.loss_plotter = Loss_Plotter()
@@ -115,17 +119,19 @@ class Logger:
         mean_loss = np.mean(batch_loss)
         self.batch_log['loss'].append(mean_loss)
         self.loss_plotter.add(mean_loss)
-    def log_checkpoint(self, dev_score, test_score):
+    def log_checkpoint(self, dev_score):
         import time  # 导入时间模块
         meta = {'best_score_updated': False}
-        self.checkpoint_log['scores'].append({'dev': dev_score, 'test': test_score})
+        self.checkpoint_log['scores'].append({'dev': dev_score, 'test': fake_test_score()})
         self.checkpoint_log['log_time'].append(time.time())
-        self.score_plotter.add(dev_score[2], test_score[2])
+        self.score_plotter.add(dev_score[2], self.best_test)
         if dev_score[2] > self.best_dev:
             self.best_dev = dev_score[2]
-            self.best_test = test_score[2]
             meta['best_score_updated'] = True
         return meta
+    def update_best_test(self, test_score):
+        self.best_test = test_score[2]
+        self.checkpoint_log['scores'][-1]['test'] = test_score
     def end(self):
         import time  # 导入时间模块
         self.end_time = time.time()  # 记录结束时间
@@ -156,7 +162,12 @@ class Logger:
                 f.write(f'recall: {score["test"][1]:.2f}\n')
                 f.write(f'f-score: {score["test"][2]:.2f}\n\n')
             
-
+def save_checkpoint(model):
+    import torch
+    PATH = f'/usr01/taku/checkpoint/bbc_news_emphasis/{model.get_name()}.checkpoint'
+    torch.save({
+            'model_state_dict': model.m.state_dict(),
+            }, PATH)
 
 def train_and_plot(
         m, trainset, devset, testset, 
@@ -176,11 +187,12 @@ def train_and_plot(
         m.opter_step()
         if (step + 1) % check_step == 0: # Evalue
             score_dev = m.test(devset.copy())
-            score_test = m.test(testset.copy())
-            beutiful_print_result(step, score_dev, score_test)
             # Plot & Cover
-            meta = logger.log_checkpoint(score_dev, score_test)
+            meta = logger.log_checkpoint(score_dev)
             if meta['best_score_updated']:
-                # save_checkpoint(name, m, step, score_dev, score_test)
+                score_test = m.test(testset.copy())
+                logger.update_best_test(score_test)
+                save_checkpoint(m)
                 print('Best score updated!')
+            beutiful_print_result(step, score_dev, score_test)
     logger.end()
