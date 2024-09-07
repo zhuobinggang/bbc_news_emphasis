@@ -14,3 +14,7 @@ def main():
 
     # 训练模型并打印结果
     train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=4, check_step=100, total_step=2000)
+
+
+if __name__ == "__main__":  # {{ edit_2 }}
+    main()  # {{ edit_3 }}
