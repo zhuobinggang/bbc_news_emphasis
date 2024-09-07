@@ -41,8 +41,6 @@ def encode_by_title_and_sentences_truncate(roberta_tokenizer, title, sentences):
         encoded = roberta_tokenizer.encode(sentence, add_special_tokens=True)
         if len(encoded) > max_tokens_per_sentence:
             encoded = encoded[:max_tokens_per_sentence - 2] + roberta_tokenizer.encode('...</s>', add_special_tokens=False)  # 保留'...'的token
-            print(f"Truncated length: {len(encoded)}")
-            print(f"Truncated sentence: {sentence}")
         token_ids.extend(encoded)
         if sentence != formatted_title:
             head_ids.append(len(token_ids) - len(encoded))
@@ -51,7 +49,7 @@ def encode_by_title_and_sentences_truncate(roberta_tokenizer, title, sentences):
 # return size: (sentence_num, 768)
 def get_embeddings(model, token_ids, head_ids):
     # 获取嵌入
-    outputs = model(torch.tensor(token_ids).unsqueeze(0))
+    outputs = model(torch.tensor(token_ids).unsqueeze(0).cuda())
     cls_embeddings = outputs.last_hidden_state[0, head_ids]
     return cls_embeddings
 
@@ -103,7 +101,7 @@ class Sector_2024(nn.Module):
     def get_loss(self, item):
         labels = item['labels']
         binary_class_logits = self.forward(item).unsqueeze(0) # size: (1, sentence_num, 2)
-        labels = torch.LongTensor([labels]) # size: (1, sentence_num)
+        labels = torch.LongTensor([labels]).cuda() # size: (1, sentence_num)
         loss = -self.crf(binary_class_logits, labels)
         return loss
 
@@ -113,6 +111,9 @@ class Sector_2024(nn.Module):
     def predict(self, item):
         binary_class_logits = self.forward(item)
         return self.crf.decode(binary_class_logits.unsqueeze(0))[0]
+    
+    def get_name(self):
+        return 'roberta-base-title-on-crf-on'
     
 
 # ==============================

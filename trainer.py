@@ -1,3 +1,5 @@
+import numpy as np
+
 def cal_prec_rec_f1_v2(results, targets):
     TP = 0
     FP = 0
@@ -27,7 +29,10 @@ def draw_line_chart(x, ys, legends, path='./logs/dd.png', colors=None, xlabel=No
     import matplotlib.pyplot as plt
     plt.clf()
     for i, (y, l) in enumerate(zip(ys, legends)):
-        plt.plot(x[:len(y)], y, colors[i] if colors else None, label=l)
+        if colors:
+            plt.plot(x[:len(y)], y, colors[i], label=l)
+        else:
+            plt.plot(x[:len(y)], y, label=l)
     plt.legend()
     if xlabel: plt.xlabel(xlabel)
     if ylabel: plt.ylabel(ylabel)
@@ -51,9 +56,13 @@ class ModelWrapper:
     def test(self, ds):
         labels = []
         results = []
-        for item in ds:
-            results.extend(self.m.predict(item))
-            labels.extend(item['labels'])
+        for index, item in enumerate(ds):  # 添加下标
+            try:
+                results.extend(self.m.predict(item))
+                labels.extend(item['labels'])
+            except RuntimeError as e:
+                print(f'Error at index {index}: {item}')  # 打印下标和item
+                raise e  # 继续抛出错误以终止程序运行
         return cal_prec_rec_f1_v2(results, labels)
         
 
@@ -89,32 +98,89 @@ class Score_Plotter():
     def plot(self, path, name1 = 'dev', name2 = 'test'):
         draw_line_chart(range(len(self.l1)), [self.l1, self.l2], [name1, name2], path = path)
 
+class Logger:
+    def __init__(self, model_name):
+        self.loss_plotter = Loss_Plotter()
+        self.score_plotter = Score_Plotter()
+        self.batch_log = {'loss': []}
+        self.checkpoint_log = {'scores': [], 'log_time': []}
+        self.txt_log = ''
+        self.model_name = model_name
+        self.best_dev = 0
+        self.best_test = 0
+    def start(self):
+        import time  # 导入时间模块
+        self.start_time = time.time()  # 记录开始时间
+    def log_batch(self, batch_loss):
+        mean_loss = np.mean(batch_loss)
+        self.batch_log['loss'].append(mean_loss)
+        self.loss_plotter.add(mean_loss)
+    def log_checkpoint(self, dev_score, test_score):
+        import time  # 导入时间模块
+        meta = {'best_score_updated': False}
+        self.checkpoint_log['scores'].append({'dev': dev_score, 'test': test_score})
+        self.checkpoint_log['log_time'].append(time.time())
+        self.score_plotter.add(dev_score[2], test_score[2])
+        if dev_score[2] > self.best_dev:
+            self.best_dev = dev_score[2]
+            self.best_test = test_score[2]
+            meta['best_score_updated'] = True
+        return meta
+    def end(self):
+        import time  # 导入时间模块
+        self.end_time = time.time()  # 记录结束时间
+        self.score_plotter.plot(f'logs/{self.model_name}_score.png')
+        self.loss_plotter.plot(f'logs/{self.model_name}_loss.png')
+        self.log_txt()
+    def log_txt(self):
+        import time  # 导入时间模块
+        best_dev = self.best_dev
+        best_test = self.best_test
+        with open(f'logs/{self.model_name}_log.txt', 'w') as f:
+            # 输出批次损失
+            # f.write(f'Batch loss: {self.batch_log["loss"]}\n\n')
+            total_time = self.end_time - self.start_time  # 计算总时间
+            f.write(f'total time: {total_time:.2f}s\n')
+            f.write(f'best dev: {best_dev}\n')
+            f.write(f'best test: {best_test}\n\n')
+            for i, score in enumerate(self.checkpoint_log['scores']):
+                log_time = time.strftime('%Y.%m.%d %H:%M:%S', time.localtime(self.checkpoint_log['log_time'][i]))
+                f.write(f'# Check point {i}\n')
+                f.write(f'log time: {log_time}\n')
+                f.write('## dev score\n')
+                f.write(f'precision: {score["dev"][0]:.2f}\n')
+                f.write(f'recall: {score["dev"][1]:.2f}\n')
+                f.write(f'f-score: {score["dev"][2]:.2f}\n')
+                f.write('## test score\n')
+                f.write(f'precision: {score["test"][0]:.2f}\n')
+                f.write(f'recall: {score["test"][1]:.2f}\n')
+                f.write(f'f-score: {score["test"][2]:.2f}\n\n')
+            
+
+
 def train_and_plot(
         m, trainset, devset, testset, 
         batch_size = 4, check_step = 100, total_step = 2000): # 大约4个epoch
     # Init Model
     # Start
-    import numpy as np
     trainset = Infinite_Dataset(trainset.copy())
-    loss_plotter = Loss_Plotter()
-    score_plotter = Score_Plotter()
-    best_dev = 0
+    logger = Logger(m.get_name())
+    logger.start()
     for step in range(total_step):
         batch_loss = []
         for _ in range(batch_size):
             loss = m.loss(trainset.next())
             loss.backward()
             batch_loss.append(loss.item())
-        loss_plotter.add(np.mean(batch_loss))
+        logger.log_batch(batch_loss)
         m.opter_step()
         if (step + 1) % check_step == 0: # Evalue
             score_dev = m.test(devset.copy())
             score_test = m.test(testset.copy())
             beutiful_print_result(step, score_dev, score_test)
-            if score_dev[2] > best_dev:
-                best_dev = score_dev[2]
-                # save_checkpoint(name, m, step, score_dev, score_test)
             # Plot & Cover
-            score_plotter.add(score_dev[2], score_test[2])
-            score_plotter.plot(f'logs/{m.get_name()}_score.png')
-            loss_plotter.plot(f'logs/{m.get_name()}_loss.png')
+            meta = logger.log_checkpoint(score_dev, score_test)
+            if meta['best_score_updated']:
+                # save_checkpoint(name, m, step, score_dev, score_test)
+                print('Best score updated!')
+    logger.end()

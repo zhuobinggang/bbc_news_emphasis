@@ -127,10 +127,12 @@ def five_folds_divided_dataset(articles, fold_index):  # 新增函数
     return train_set, test_set  # 返回训练集和测试集
 
 
-def final_dataset(shuffle = True, fold_index = 0):
+def final_dataset(shuffle = True, fold_index = 0, max_sentence_count = 50):
     articles = read_dataset()
     if shuffle:
         articles = shuffled_articles(articles)
+    # 过滤过长文章
+    articles = [article for article in articles if len(article['sentences']) <= max_sentence_count]
     train_set, test_set = five_folds_divided_dataset(articles, fold_index)
     return train_set, test_set
 
@@ -139,6 +141,22 @@ def final_dataset_need_devset(shuffle = True, fold_index = 0, devset_size = 200)
     dev_set = train_set[-devset_size:]
     train_set = train_set[:-devset_size]
     return train_set, dev_set, test_set
+
+def log_too_long_articles(max_sentence_count = 50):  # 新增函数
+    train_set, test_set = final_dataset()
+    articles = train_set + test_set
+    too_long_count = 0
+    total_count = len(articles)
+    
+    with open('too_long_article.log', 'w') as log_file:
+        for article in articles:
+            if len(article['sentences']) > max_sentence_count:  # 检查句子数量
+                log_file.write(f"Sentence Count: {len(article['sentences'])}, URL: {article['url']}, Category: {article['category']}\n")
+                too_long_count += 1
+    
+    if total_count > 0:
+        proportion = (too_long_count / total_count) * 100
+        print(f"过长文章占比: {proportion:.2f}%")  # 打印过长文章的占比
 
 if __name__ == "__main__":
     data_verify()
