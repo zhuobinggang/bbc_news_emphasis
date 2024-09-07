@@ -134,5 +134,11 @@ def final_dataset(shuffle = True, fold_index = 0):
     train_set, test_set = five_folds_divided_dataset(articles, fold_index)
     return train_set, test_set
 
+def final_dataset_need_devset(shuffle = True, fold_index = 0, devset_size = 200):
+    train_set, test_set = final_dataset(shuffle, fold_index)
+    dev_set = train_set[-devset_size:]
+    train_set = train_set[:-devset_size]
+    return train_set, dev_set, test_set
+
 if __name__ == "__main__":
     data_verify()
