@@ -175,7 +175,7 @@ class Logger:
             # 输出批次损失
             # f.write(f'Batch loss: {self.batch_log["loss"]}\n\n')
             total_time = self.end_time - self.start_time  # 计算总时间
-            f.write(f'total time: {total_time:.2f}s\n')
+            f.write(f'total time: {total_time:.3f}s\n')
             f.write(f'best dev: {best_dev}\n')
             f.write(f'best test: {best_test}\n\n')
             for i, score in enumerate(self.checkpoint_log['scores']):
@@ -183,13 +183,13 @@ class Logger:
                 f.write(f'# Check point {i}\n')
                 f.write(f'log time: {log_time}\n')
                 f.write('## dev score\n')
-                f.write(f'precision: {score["dev"][0]:.2f}\n')
-                f.write(f'recall: {score["dev"][1]:.2f}\n')
-                f.write(f'f-score: {score["dev"][2]:.2f}\n')
+                f.write(f'precision: {score["dev"][0]:.3f}\n')
+                f.write(f'recall: {score["dev"][1]:.3f}\n')
+                f.write(f'f-score: {score["dev"][2]:.3f}\n')
                 f.write('## test score\n')
-                f.write(f'precision: {score["test"][0]:.2f}\n')
-                f.write(f'recall: {score["test"][1]:.2f}\n')
-                f.write(f'f-score: {score["test"][2]:.2f}\n\n')
+                f.write(f'precision: {score["test"][0]:.3f}\n')
+                f.write(f'recall: {score["test"][1]:.3f}\n')
+                f.write(f'f-score: {score["test"][2]:.3f}\n\n')
 
 def fake_test_score_rouge():
     return {'rouge1': {'precision': -1.0, 'recall': -1.0, 'fmeasure': -1.0},
@@ -221,26 +221,26 @@ class Rouge_Logger(Logger):  # {{ edit_1 }}
         best_test = self.best_test
         with open(f'logs/{self.model_name}_log.txt', 'a') as f:  # 追加模式
             total_time = self.end_time - self.start_time  # 计算总时间
-            f.write(f'total time: {total_time:.2f}s\n')
-            f.write(f'best dev (rouge1 f-score): {best_dev:.2f}\n')
-            f.write(f'best test (rouge1 f-score): {best_test:.2f}\n\n')
+            f.write(f'total time: {total_time:.3f}s\n')
+            f.write(f'best dev (rouge1 f-score): {best_dev:.3f}\n')
+            f.write(f'best test (rouge1 f-score): {best_test:.3f}\n\n')
             for i, score in enumerate(self.checkpoint_log['scores']):
                 f.write(f'# Check point {i}\n')
                 f.write(f'log time: {time.strftime("%Y.%m.%d %H:%M:%S", time.localtime(self.checkpoint_log["log_time"][i]))}\n')
                 f.write('## dev score\n')
-                f.write(f'rouge1 precision: {score["dev"]["rouge1"]["precision"]:.2f}\n')
-                f.write(f'rouge1 recall: {score["dev"]["rouge1"]["recall"]:.2f}\n')
-                f.write(f'rouge1 f-score: {score["dev"]["rouge1"]["fmeasure"]:.2f}\n')
+                f.write(f'rouge1 precision: {score["dev"]["rouge1"]["precision"]:.3f}\n')
+                f.write(f'rouge1 recall: {score["dev"]["rouge1"]["recall"]:.3f}\n')
+                f.write(f'rouge1 f-score: {score["dev"]["rouge1"]["fmeasure"]:.3f}\n')
                 f.write('## test score\n')
-                f.write(f'rouge1 precision: {score["test"]["rouge1"]["precision"]:.2f}\n')
-                f.write(f'rouge1 recall: {score["test"]["rouge1"]["recall"]:.2f}\n')
-                f.write(f'rouge1 f-score: {score["test"]["rouge1"]["fmeasure"]:.2f}\n')
-                f.write(f'rouge2 precision: {score["test"]["rouge2"]["precision"]:.2f}\n')
-                f.write(f'rouge2 recall: {score["test"]["rouge2"]["recall"]:.2f}\n')
-                f.write(f'rouge2 f-score: {score["test"]["rouge2"]["fmeasure"]:.2f}\n')
-                f.write(f'rougeL precision: {score["test"]["rougeL"]["precision"]:.2f}\n')
-                f.write(f'rougeL recall: {score["test"]["rougeL"]["recall"]:.2f}\n')
-                f.write(f'rougeL f-score: {score["test"]["rougeL"]["fmeasure"]:.2f}\n\n')
+                f.write(f'rouge1 precision: {score["test"]["rouge1"]["precision"]:.3f}\n')
+                f.write(f'rouge1 recall: {score["test"]["rouge1"]["recall"]:.3f}\n')
+                f.write(f'rouge1 f-score: {score["test"]["rouge1"]["fmeasure"]:.3f}\n')
+                f.write(f'rouge2 precision: {score["test"]["rouge2"]["precision"]:.3f}\n')
+                f.write(f'rouge2 recall: {score["test"]["rouge2"]["recall"]:.3f}\n')
+                f.write(f'rouge2 f-score: {score["test"]["rouge2"]["fmeasure"]:.3f}\n')
+                f.write(f'rougeL precision: {score["test"]["rougeL"]["precision"]:.3f}\n')
+                f.write(f'rougeL recall: {score["test"]["rougeL"]["recall"]:.3f}\n')
+                f.write(f'rougeL f-score: {score["test"]["rougeL"]["fmeasure"]:.3f}\n\n')
             
 def save_checkpoint(model_wrapper):
     model_wrapper.save_checkpoint()

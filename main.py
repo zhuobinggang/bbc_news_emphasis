@@ -48,8 +48,7 @@ def encode_with_title_and_sentences_truncate(tokenizer, sentences, title = None,
             encoded = encoded[:max_tokens_per_sentence - 2]
             encoded = [tokenizer.cls_token_id] + encoded + [tokenizer.sep_token_id]
         token_ids.extend(encoded)
-        if sentence != formatted_title:
-            head_ids.append(len(token_ids) - len(encoded))
+        head_ids.append(len(token_ids) - len(encoded))
     # 修改的assert逻辑
     if len(head_ids) != original_sentences_num:
         print(f"head_ids length: {len(head_ids)}, original_sentences_num: {original_sentences_num}")
