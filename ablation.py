@@ -36,7 +36,8 @@ class Sector_without_crf(Sector_2024):
 class Sector_without_title(Sector_2024):
     def forward(self, item):
         sentences = item['sentences']  # 只使用句子
-        token_ids, head_ids = encode_with_title_and_sentences_truncate(self.tokenizer, sentences, None)
+        title = item['title']
+        token_ids, head_ids = encode_with_title_and_sentences_truncate(self.tokenizer, sentences, title, empty_title=True)
         embeddings = get_embeddings(self.bert, token_ids, head_ids)
         binary_class_logits = self.classifier(embeddings) # size: (sentence_num, 2)
         return binary_class_logits

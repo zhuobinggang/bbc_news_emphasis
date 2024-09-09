@@ -31,22 +31,22 @@ def encode_by_title_and_sentences(roberta_tokenizer, title, sentences):
             head_ids.append(len(token_ids) - len(encoded))
     return token_ids, head_ids
 
-def encode_with_title_and_sentences_truncate(tokenizer, sentences, title = None, truncate = True):
+def encode_with_title_and_sentences_truncate(tokenizer, sentences, title, truncate = True, empty_title = False):
     token_ids = []
     head_ids = []
     original_sentences_num = len(sentences)
-    if title:
-        formatted_title = f'Title: {title}'
-        title_tokens = tokenizer.encode(formatted_title, add_special_tokens=True)
+    title_tokens = tokenizer.encode(title, add_special_tokens=False)
+    if not empty_title:
+        title_tokens = [tokenizer.cls_token_id] + title_tokens + [tokenizer.sep_token_id]
     else:
-        title_tokens = []
+        title_tokens = [tokenizer.cls_token_id] + [tokenizer.pad_token_id] * len(title_tokens) + [tokenizer.sep_token_id]
     token_ids += title_tokens
     max_tokens_per_sentence = (500 - len(title_tokens)) // len(sentences) # 500是roberta-base的大概长度
     for sentence in sentences:
         encoded = tokenizer.encode(sentence, add_special_tokens=False)
-        if truncate and len(encoded) > max_tokens_per_sentence:
+        if truncate and len(encoded) > (max_tokens_per_sentence - 2):
             encoded = encoded[:max_tokens_per_sentence - 2]
-            encoded = [tokenizer.cls_token_id] + encoded + [tokenizer.sep_token_id]
+        encoded = [tokenizer.cls_token_id] + encoded + [tokenizer.sep_token_id]
         token_ids.extend(encoded)
         head_ids.append(len(token_ids) - len(encoded))
     # 修改的assert逻辑
