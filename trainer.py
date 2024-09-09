@@ -47,13 +47,25 @@ class ModelWrapper:
     def __init__(self, m):
         self.m = m
         self.model = m
+        self.path_prefix = '/usr01/taku/checkpoint/bbc_news_emphasis/'
+        self.suffix = '.checkpoint'
+        self.fold_index = 999
+        self.repeat_index = 999
+        self.name = 'unknown'
+        self.meta_setted = False
     def loss(self, item):
         return self.m.get_loss(item)
     def opter_step(self):
         self.m.opter.step()
         self.m.opter.zero_grad()
+    def set_meta(self, fold_index = 999, repeat_index = 999):
+        self.fold_index = fold_index
+        self.repeat_index = repeat_index
+        self.name = f'{self.m.get_name()}-fold{fold_index}-repeat{repeat_index}'
+        self.meta_setted = True
     def get_name(self):
-        return self.m.get_name()
+        assert self.meta_setted
+        return self.name
     def test(self, ds):
         labels = []
         results = []
@@ -65,6 +77,19 @@ class ModelWrapper:
                 print(f'Error at index {index}: {item}')  # 打印下标和item
                 raise e  # 继续抛出错误以终止程序运行
         return cal_prec_rec_f1_v2(results, labels)
+    def predict(self, item):
+        return self.m.predict(item)
+    def load_checkpoint(self):
+        import torch
+        PATH = f'{self.path_prefix}{self.get_name()}{self.suffix}'
+        checkpoint = torch.load(PATH)
+        self.m.load_state_dict(checkpoint['model_state_dict'])
+    def save_checkpoint(self):
+        import torch
+        PATH = f'{self.path_prefix}{self.get_name()}{self.suffix}'
+        torch.save({'model_state_dict': self.m.state_dict()}, PATH)
+    def calc_rouge1(self, ds):
+        return calc_rouge1(self, ds)
         
 
 class Infinite_Dataset:
@@ -162,37 +187,45 @@ class Logger:
                 f.write(f'recall: {score["test"][1]:.2f}\n')
                 f.write(f'f-score: {score["test"][2]:.2f}\n\n')
             
-def save_checkpoint(model):
-    import torch
-    PATH = f'/usr01/taku/checkpoint/bbc_news_emphasis/{model.get_name()}.checkpoint'
-    torch.save({
-            'model_state_dict': model.m.state_dict(),
-            }, PATH)
+def save_checkpoint(model_wrapper):
+    model_wrapper.save_checkpoint()
+
+def calc_rouge1(model_wrapper, ds):
+    from rouge_score import rouge_scorer
+    scorer = rouge_scorer.RougeScorer(['rouge1'])
+    results = []
+    for item in ds:
+        predicted = model_wrapper.predict(item)
+        sentences_predicted = [sentence for sentence, label in zip(item['sentences'], predicted) if label == 1]
+        reference = [sentence for sentence, label in zip(item['sentences'], item['labels']) if label == 1]
+        result = scorer.score(sentences_predicted, reference)
+        results.append(result['rouge1']) # sample: Score(precision=0.75, recall=0.66, fmeasure=0.70)
+    return results
 
 def train_and_plot(
-        m, trainset, devset, testset, 
+        model_wrapper, trainset, devset, testset, 
         batch_size = 4, check_step = 100, total_step = 2000): # 大约4个epoch
     # Init Model
     # Start
     trainset = Infinite_Dataset(trainset.copy())
-    logger = Logger(m.get_name())
+    logger = Logger(model_wrapper.get_name())
     logger.start()
     for step in range(total_step):
         batch_loss = []
         for _ in range(batch_size):
-            loss = m.loss(trainset.next())
+            loss = model_wrapper.loss(trainset.next())
             loss.backward()
             batch_loss.append(loss.item())
         logger.log_batch(batch_loss)
-        m.opter_step()
+        model_wrapper.opter_step()
         if (step + 1) % check_step == 0: # Evalue
-            score_dev = m.test(devset.copy())
+            score_dev = model_wrapper.test(devset.copy())
             # Plot & Cover
             meta = logger.log_checkpoint(score_dev)
             if meta['best_score_updated']:
-                score_test = m.test(testset.copy())
+                score_test = model_wrapper.test(testset.copy())
                 logger.update_best_test(score_test)
-                save_checkpoint(m)
+                model_wrapper.save_checkpoint()
                 print('Best score updated!')
             beutiful_print_result(step, score_dev, score_test)
     logger.end()

@@ -112,11 +112,6 @@ class Sector_2024(nn.Module):
     def predict(self, item):
         binary_class_logits = self.forward(item)
         return self.crf.decode(binary_class_logits.unsqueeze(0))[0]
-    
-    def set_meta(self, fold_index = None, repeat_index = None):
-        self.fold_index = fold_index
-        self.repeat_index = repeat_index
-        self.name = f'roberta-base-title-on-crf-on-fold{fold_index}-repeat{repeat_index}'
 
     def get_name(self):
         return self.name
