@@ -66,20 +66,12 @@ class ModelWrapper:
     def get_name(self):
         assert self.meta_setted
         return self.name
-    def test(self, ds):
-        labels = []
-        results = []
-        for index, item in enumerate(ds):  # 添加下标
-            try:
-                results.extend(self.m.predict(item))
-                labels.extend(item['labels'])
-            except RuntimeError as e:
-                print(f'Error at index {index}: {item}')  # 打印下标和item
-                raise e  # 继续抛出错误以终止程序运行
-        return cal_prec_rec_f1_v2(results, labels)
+    def test(self, ds): # Exact precision, recall, f-score
+        return calc_exact_score(self, ds)
     def predict(self, item):
         return self.m.predict(item)
     def load_checkpoint(self):
+        assert self.meta_setted
         import torch
         PATH = f'{self.path_prefix}{self.get_name()}{self.suffix}'
         checkpoint = torch.load(PATH)
@@ -90,7 +82,17 @@ class ModelWrapper:
         torch.save({'model_state_dict': self.m.state_dict()}, PATH)
     def calc_rouge1(self, ds):
         return calc_rouge1(self, ds)
+    def calc_rouges(self, ds):
+        return calc_rouges(self, ds)
         
+
+def calc_exact_score(model_wrapper, ds):
+    labels = []
+    results = []
+    for item in ds:
+        results.extend(model_wrapper.predict(item))
+        labels.extend(item['labels'])
+    return cal_prec_rec_f1_v2(results, labels)
 
 class Infinite_Dataset:
     def __init__(self, ds):
@@ -137,6 +139,8 @@ class Logger:
         self.model_name = model_name
         self.best_dev = 0
         self.best_test = 0
+        self.score_func_dev = calc_exact_score
+        self.score_func_test = calc_exact_score
     def start(self):
         import time  # 导入时间模块
         self.start_time = time.time()  # 记录开始时间
@@ -186,29 +190,93 @@ class Logger:
                 f.write(f'precision: {score["test"][0]:.2f}\n')
                 f.write(f'recall: {score["test"][1]:.2f}\n')
                 f.write(f'f-score: {score["test"][2]:.2f}\n\n')
+
+def fake_test_score_rouge():
+    return {'rouge1': {'precision': -1.0, 'recall': -1.0, 'fmeasure': -1.0},
+            'rouge2': {'precision': -1.0, 'recall': -1.0, 'fmeasure': -1.0},
+            'rougeL': {'precision': -1.0, 'recall': -1.0, 'fmeasure': -1.0}}
+
+class Rouge_Logger(Logger):  # {{ edit_1 }}
+    def __init__(self, model_name):
+        super().__init__(model_name)  # 调用父类构造函数
+        self.score_func_dev = calc_rouge1
+        self.score_func_test = calc_rouges
+    def log_checkpoint(self, dev_score_rouge):
+        import time  # 导入时间模块
+        meta = {'best_score_updated': False}
+        self.checkpoint_log['scores'].append({'dev': dev_score_rouge, 'test': fake_test_score_rouge()})
+        self.checkpoint_log['log_time'].append(time.time())
+        dev_score_rouge1_fmeasure = dev_score_rouge['rouge1']['fmeasure']
+        self.score_plotter.add(dev_score_rouge1_fmeasure, self.best_test)
+        if dev_score_rouge1_fmeasure > self.best_dev:
+            self.best_dev = dev_score_rouge1_fmeasure
+            meta['best_score_updated'] = True
+        return meta
+    def update_best_test(self, test_score_rouge):
+        self.best_test = test_score_rouge['rouge1']['fmeasure']
+        self.checkpoint_log['scores'][-1]['test'] = test_score_rouge
+    def log_txt(self):
+        import time  # 导入时间模块
+        best_dev = self.best_dev
+        best_test = self.best_test
+        with open(f'logs/{self.model_name}_log.txt', 'a') as f:  # 追加模式
+            total_time = self.end_time - self.start_time  # 计算总时间
+            f.write(f'total time: {total_time:.2f}s\n')
+            f.write(f'best dev (rouge1 f-score): {best_dev:.2f}\n')
+            f.write(f'best test (rouge1 f-score): {best_test:.2f}\n\n')
+            for i, score in enumerate(self.checkpoint_log['scores']):
+                f.write(f'# Check point {i}\n')
+                f.write(f'log time: {time.strftime("%Y.%m.%d %H:%M:%S", time.localtime(self.checkpoint_log["log_time"][i]))}\n')
+                f.write('## dev score\n')
+                f.write(f'rouge1 precision: {score["dev"]["rouge1"]["precision"]:.2f}\n')
+                f.write(f'rouge1 recall: {score["dev"]["rouge1"]["recall"]:.2f}\n')
+                f.write(f'rouge1 f-score: {score["dev"]["rouge1"]["fmeasure"]:.2f}\n')
+                f.write('## test score\n')
+                f.write(f'rouge1 precision: {score["test"]["rouge1"]["precision"]:.2f}\n')
+                f.write(f'rouge1 recall: {score["test"]["rouge1"]["recall"]:.2f}\n')
+                f.write(f'rouge1 f-score: {score["test"]["rouge1"]["fmeasure"]:.2f}\n')
+                f.write(f'rouge2 precision: {score["test"]["rouge2"]["precision"]:.2f}\n')
+                f.write(f'rouge2 recall: {score["test"]["rouge2"]["recall"]:.2f}\n')
+                f.write(f'rouge2 f-score: {score["test"]["rouge2"]["fmeasure"]:.2f}\n')
+                f.write(f'rougeL precision: {score["test"]["rougeL"]["precision"]:.2f}\n')
+                f.write(f'rougeL recall: {score["test"]["rougeL"]["recall"]:.2f}\n')
+                f.write(f'rougeL f-score: {score["test"]["rougeL"]["fmeasure"]:.2f}\n\n')
             
 def save_checkpoint(model_wrapper):
     model_wrapper.save_checkpoint()
 
 def calc_rouge1(model_wrapper, ds):
+    return calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1'])
+
+def calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1', 'rouge2', 'rougeL']):
     from rouge_score import rouge_scorer
-    scorer = rouge_scorer.RougeScorer(['rouge1'])
+    import numpy as np
+    scorer = rouge_scorer.RougeScorer(scorer_keys)
     results = []
     for item in ds:
         predicted = model_wrapper.predict(item)
-        sentences_predicted = [sentence for sentence, label in zip(item['sentences'], predicted) if label == 1]
-        reference = [sentence for sentence, label in zip(item['sentences'], item['labels']) if label == 1]
+        sentences_predicted = ' '.join([sentence for sentence, label in zip(item['sentences'], predicted) if label == 1])
+        reference = ' '.join([sentence for sentence, label in zip(item['sentences'], item['labels']) if label == 1])
         result = scorer.score(sentences_predicted, reference)
-        results.append(result['rouge1']) # sample: Score(precision=0.75, recall=0.66, fmeasure=0.70)
-    return results
+        results.append(result)
+    # 根据scorer_keys输出平均precision, recall, f-score
+    avg_results = {}
+    for key in scorer_keys:
+        avg_results[key] = {
+            'precision': np.mean([result[key].precision for result in results]),
+            'recall': np.mean([result[key].recall for result in results]),
+            'fmeasure': np.mean([result[key].fmeasure for result in results])
+        }
+    return avg_results
 
 def train_and_plot(
         model_wrapper, trainset, devset, testset, 
-        batch_size = 4, check_step = 100, total_step = 2000): # 大约4个epoch
+        batch_size = 4, check_step = 100, total_step = 2000, logger = None): # 大约4个epoch
     # Init Model
     # Start
     trainset = Infinite_Dataset(trainset.copy())
-    logger = Logger(model_wrapper.get_name())
+    if logger is None:
+        logger = Logger(model_wrapper.get_name())
     logger.start()
     for step in range(total_step):
         batch_loss = []
@@ -219,13 +287,13 @@ def train_and_plot(
         logger.log_batch(batch_loss)
         model_wrapper.opter_step()
         if (step + 1) % check_step == 0: # Evalue
-            score_dev = model_wrapper.test(devset.copy())
+            score_dev = logger.score_func_dev(model_wrapper, devset.copy())
+            print(score_dev)
             # Plot & Cover
             meta = logger.log_checkpoint(score_dev)
             if meta['best_score_updated']:
-                score_test = model_wrapper.test(testset.copy())
+                score_test = logger.score_func_test(model_wrapper, testset.copy())
                 logger.update_best_test(score_test)
                 model_wrapper.save_checkpoint()
                 print('Best score updated!')
-            beutiful_print_result(step, score_dev, score_test)
     logger.end()
