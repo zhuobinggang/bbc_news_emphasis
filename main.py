@@ -5,16 +5,16 @@ import torch.nn.functional as F
 from itertools import chain
 from torchcrf import CRF
 
-def get_tokenizer():
+def get_tokenizer(model_name = 'roberta-base'):
     from transformers import RobertaTokenizer
-    return RobertaTokenizer.from_pretrained('roberta-base')
+    return RobertaTokenizer.from_pretrained(model_name)
 
-def get_model():
+def get_model(model_name = 'roberta-base'):
     from transformers import RobertaModel
-    return RobertaModel.from_pretrained('roberta-base')
+    return RobertaModel.from_pretrained(model_name)
 
-def get_untrained_model_and_tokenizer():
-    return get_model(), get_tokenizer()
+def get_untrained_model_and_tokenizer(model_name = 'roberta-base'):
+    return get_model(model_name), get_tokenizer(model_name)
 
 def encode_by_title_and_sentences(roberta_tokenizer, title, sentences):
     token_ids = []
@@ -31,19 +31,30 @@ def encode_by_title_and_sentences(roberta_tokenizer, title, sentences):
             head_ids.append(len(token_ids) - len(encoded))
     return token_ids, head_ids
 
-def encode_by_title_and_sentences_truncate(roberta_tokenizer, title, sentences):
+def encode_with_title_and_sentences_truncate(tokenizer, sentences, title = None, truncate = True):
     token_ids = []
     head_ids = []
-    formatted_title = f'Title: {title}'
-    sentences = [formatted_title] + sentences
-    max_tokens_per_sentence = 480 // len(sentences) # 480是roberta-base的最大长度减去标题的大概长度
+    original_sentences_num = len(sentences)
+    if title:
+        formatted_title = f'Title: {title}'
+        title_tokens = tokenizer.encode(formatted_title, add_special_tokens=True)
+    else:
+        title_tokens = []
+    token_ids += title_tokens
+    max_tokens_per_sentence = (500 - len(title_tokens)) // len(sentences) # 500是roberta-base的大概长度
     for sentence in sentences:
-        encoded = roberta_tokenizer.encode(sentence, add_special_tokens=True)
-        if len(encoded) > max_tokens_per_sentence:
-            encoded = encoded[:max_tokens_per_sentence - 2] + roberta_tokenizer.encode('...</s>', add_special_tokens=False)  # 保留'...'的token
+        encoded = tokenizer.encode(sentence, add_special_tokens=False)
+        if truncate and len(encoded) > max_tokens_per_sentence:
+            encoded = encoded[:max_tokens_per_sentence - 2]
+            encoded = [tokenizer.cls_token_id] + encoded + [tokenizer.sep_token_id]
         token_ids.extend(encoded)
         if sentence != formatted_title:
             head_ids.append(len(token_ids) - len(encoded))
+    # 修改的assert逻辑
+    if len(head_ids) != original_sentences_num:
+        print(f"head_ids length: {len(head_ids)}, original_sentences_num: {original_sentences_num}")
+        print(f"sentences: {sentences}")
+        raise ValueError("head_ids和original_sentences_num的长度不匹配，程序终止。")
     return token_ids, head_ids
 
 # return size: (sentence_num, 768)
@@ -74,13 +85,16 @@ class Sector_2024(nn.Module):
         if cuda:
             self.cuda()
         self.is_cuda = cuda
-        self.BCE = nn.BCELoss()
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.set_name()
+
+    def set_name(self):
         self.name = 'roberta-base-title-on-crf-on'
 
     def forward(self, item):
         title = item['title']
         sentences = item['sentences']
-        token_ids, head_ids = encode_by_title_and_sentences_truncate(self.tokenizer, title, sentences)
+        token_ids, head_ids = encode_with_title_and_sentences_truncate(self.tokenizer, sentences, title)
         embeddings = get_embeddings(self.bert, token_ids, head_ids) # size: (sentence_num, 768)
         binary_class_logits = self.classifier(embeddings) # size: (sentence_num, 2)
         return binary_class_logits
@@ -119,7 +133,7 @@ class Sector_2024(nn.Module):
 
 # ==============================
 
-def verify_dataset(tokenizer):
+def verify_dataset(tokenizer = get_tokenizer()):
     from dataset_verify import final_dataset
     train_set, test_set = final_dataset()
     articles = train_set + test_set
@@ -131,7 +145,7 @@ def verify_dataset(tokenizer):
     for article in articles:  # 直接遍历文章对象
         title = article['title']
         sentences = article['sentences']
-        token_ids, _ = encode_by_title_and_sentences(tokenizer, title, sentences)
+        token_ids, _ = encode_with_title_and_sentences_truncate(tokenizer, sentences, title, truncate=False)
         
         total_articles += 1
         total_tokens += len(token_ids)
@@ -146,7 +160,7 @@ def verify_dataset(tokenizer):
     print(f"Articles exceeding 500 tokens: {exceeding_count} ({exceeding_ratio:.2%})")
     print(f"Average token count per article: {average_tokens:.2f}")
 
-def get_exceeding_articles(tokenizer):
+def get_exceeding_articles(tokenizer = get_tokenizer()):
     from dataset_verify import final_dataset
     train_set, test_set = final_dataset()
     articles = train_set + test_set
@@ -154,7 +168,7 @@ def get_exceeding_articles(tokenizer):
     for article in articles:  # 直接遍历文章对象
         title = article['title']
         sentences = article['sentences']
-        token_ids, _ = encode_by_title_and_sentences(tokenizer, title, sentences)
+        token_ids, _ = encode_with_title_and_sentences_truncate(tokenizer, sentences, title, truncate=False)
         
         # 统计超过500个token的文章
         if len(token_ids) > 500:
