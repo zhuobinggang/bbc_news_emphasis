@@ -128,7 +128,8 @@ class Sector_2024(nn.Module):
 
     def get_name(self):
         return self.name
-    
+
+Sector_2024.__name__ = 'roberta-base-title-on-crf-on'
 
 # ==============================
 

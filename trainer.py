@@ -245,10 +245,14 @@ class Rouge_Logger(Logger):  # {{ edit_1 }}
 def save_checkpoint(model_wrapper):
     model_wrapper.save_checkpoint()
 
+def calc_f1_scores_by_article(model_wrapper, ds):
+    results = calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1'], need_article_level_score = True)
+    return [result['rouge1'].fmeasure for result in results]
+
 def calc_rouge1(model_wrapper, ds):
     return calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1'])
 
-def calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1', 'rouge2', 'rougeL']):
+def calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1', 'rouge2', 'rougeL'], need_article_level_score = False):
     from rouge_score import rouge_scorer
     import numpy as np
     scorer = rouge_scorer.RougeScorer(scorer_keys)
@@ -260,6 +264,8 @@ def calc_rouges(model_wrapper, ds, scorer_keys = ['rouge1', 'rouge2', 'rougeL'])
         result = scorer.score(sentences_predicted, reference)
         results.append(result)
     # 根据scorer_keys输出平均precision, recall, f-score
+    if need_article_level_score:
+        return results
     avg_results = {}
     for key in scorer_keys:
         avg_results[key] = {

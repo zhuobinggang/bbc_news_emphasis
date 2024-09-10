@@ -26,7 +26,16 @@ def run_all():
     from ablation import Sector_without_roberta, Sector_without_crf, Sector_without_title
     run_with_model_class([Sector_2024, Sector_without_roberta, Sector_without_crf, Sector_without_title])
 
+
+def run_add_modules():
+    import numpy as np
+    import torch
+    torch.manual_seed(42)
+    np.random.seed(42)
+    from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
+    run_with_model_class([Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla])
+
 if __name__ == "__main__":  
-    run_all() 
+    run_add_modules() 
     import os
     os.system('shutdown')

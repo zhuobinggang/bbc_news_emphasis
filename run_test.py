@@ -95,7 +95,40 @@ def test_ablation():
     logger = Rouge_Logger(model_wrapper.get_name())
     train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
 
+def test_add_module():
+    from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
+    from dataset_verify import final_dataset_need_devset
+    from trainer import ModelWrapper, train_and_plot, Rouge_Logger
+    # 获取数据集
+    train_set, dev_set, test_set = final_dataset_need_devset(shuffle=True, fold_index=0)
+    # 测试Sector_bert_vanilla
+    model_wrapper = ModelWrapper(Sector_bert_vanilla())
+    assert model_wrapper.model.crf is None
+    assert model_wrapper.model.tokenizer.name_or_path == 'bert-base-cased'
+    model_wrapper.set_meta(fold_index=0, repeat_index=999)
+    logger = Rouge_Logger(model_wrapper.get_name())
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    # 测试Sector_bert_crf_on
+    model_wrapper = ModelWrapper(Sector_bert_crf_on())
+    assert model_wrapper.model.crf is not None
+    assert model_wrapper.model.tokenizer.name_or_path == 'bert-base-cased'
+    model_wrapper.set_meta(fold_index=0, repeat_index=999)
+    logger = Rouge_Logger(model_wrapper.get_name())
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    # 测试Sector_bert_title_on
+    model_wrapper = ModelWrapper(Sector_bert_title_on())
+    assert model_wrapper.model.crf is None
+    assert model_wrapper.model.tokenizer.name_or_path == 'bert-base-cased'
+    model_wrapper.set_meta(fold_index=0, repeat_index=999)
+    logger = Rouge_Logger(model_wrapper.get_name())
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    # 测试Sector_roberta_vanilla
+    model_wrapper = ModelWrapper(Sector_roberta_vanilla())
+    assert model_wrapper.model.crf is None
+    assert model_wrapper.model.tokenizer.name_or_path == 'roberta-base'
+    model_wrapper.set_meta(fold_index=0, repeat_index=999)
+    logger = Rouge_Logger(model_wrapper.get_name())
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
 
-    
 if __name__ == "__main__":  # {{ edit_2 }}
     main()  # {{ edit_3 }}

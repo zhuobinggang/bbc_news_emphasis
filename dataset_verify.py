@@ -1,6 +1,7 @@
 import os
 import nltk
 import random
+from functools import lru_cache
 
 def read_filepaths_by_category(base_path='./News Articles'):
     category_dict = {}
@@ -80,6 +81,7 @@ def data_verify():
     
     print(f"Total error count: {error_count}")
 
+@lru_cache(maxsize=None)
 def read_dataset():
     articles, summaries = get_articles_and_summaries()
     dataset = []  # 用于存储最终的文章数据
