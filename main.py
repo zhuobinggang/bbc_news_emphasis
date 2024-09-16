@@ -16,19 +16,28 @@ def get_model(model_name = 'roberta-base'):
 def get_untrained_model_and_tokenizer(model_name = 'roberta-base'):
     return get_model(model_name), get_tokenizer(model_name)
 
-def encode_by_title_and_sentences(roberta_tokenizer, title, sentences):
+# TODO: 需要和encode_with_title_and_sentences_truncate一起测试
+def encode_without_title(tokenizer, sentences, truncate = True):
     token_ids = []
     head_ids = []
-    # 格式化标题并添加到句子前面
-    formatted_title = f'Title: {title}'
-    sentences = [formatted_title] + sentences
+    max_tokens_per_sentence = 500 // len(sentences)
     for sentence in sentences:
-        # 编码句子并添加[CLS]标记
-        encoded = roberta_tokenizer.encode(sentence, add_special_tokens=True)
+        encoded = tokenizer.encode(sentence, add_special_tokens=False)
+        if truncate and len(encoded) > (max_tokens_per_sentence - 2):
+            encoded = encoded[:max_tokens_per_sentence - 2]
+        encoded = [tokenizer.cls_token_id] + encoded + [tokenizer.sep_token_id]
         token_ids.extend(encoded)
-        # 记录[CLS]的下标（不包括标题的下标）
-        if sentence != formatted_title:
-            head_ids.append(len(token_ids) - len(encoded))
+        head_ids.append(len(token_ids) - len(encoded))
+    if len(head_ids) != len(sentences):
+        print(f"head_ids length: {len(head_ids)}, original_sentences_num: {len(sentences)}")
+        print(f"sentences: {sentences}")
+        raise ValueError("head_ids和original_sentences_num的长度不匹配，程序终止。")
+    if token_ids[head_ids[0]] != tokenizer.cls_token_id:
+        raise ValueError("token_ids的第一个元素不是cls_token_id，程序终止。")
+    if token_ids[-1] != tokenizer.sep_token_id:
+        raise ValueError("token_ids的最后一个元素不是sep_token_id，程序终止。")
+    if head_ids[0] != 0:
+        raise ValueError("head_ids的第一个元素不是0，程序终止。注：encode_without_title的head_ids的第一个元素应该是0。")
     return token_ids, head_ids
 
 def encode_with_title_and_sentences_truncate(tokenizer, sentences, title, truncate = True, empty_title = False):
@@ -54,6 +63,10 @@ def encode_with_title_and_sentences_truncate(tokenizer, sentences, title, trunca
         print(f"head_ids length: {len(head_ids)}, original_sentences_num: {original_sentences_num}")
         print(f"sentences: {sentences}")
         raise ValueError("head_ids和original_sentences_num的长度不匹配，程序终止。")
+    if token_ids[head_ids[0]] != tokenizer.cls_token_id:
+        raise ValueError("token_ids的第一个元素不是cls_token_id，程序终止。")
+    if token_ids[-1] != tokenizer.sep_token_id:
+        raise ValueError("token_ids的最后一个元素不是sep_token_id，程序终止。")
     return token_ids, head_ids
 
 # return size: (sentence_num, 768)

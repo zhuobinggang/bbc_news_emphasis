@@ -1,16 +1,14 @@
-from main import Sector_2024, encode_with_title_and_sentences_truncate, get_embeddings
+from main import get_embeddings
+import main
 import torch
 import torch.nn as nn
 import ablation
 
-def encode_without_title(tokenizer, sentences, title):
-    return encode_with_title_and_sentences_truncate(tokenizer, sentences, title, empty_title=True)
-
 def encode_with_title(tokenizer, sentences, title):
-    return encode_with_title_and_sentences_truncate(tokenizer, sentences, title, empty_title=False)
+    return main.encode_with_title_and_sentences_truncate(tokenizer, sentences, title, empty_title=False)
 
 # TODO: 确认使用的是bert，确认encode_with_title_and_sentences_truncate开启了empty_title，确认self.crf为空
-class Sector_bert_vanilla(Sector_2024):
+class Sector_bert_vanilla(main.Sector_2024):
     def init_bert(self):
         # 使用bert而不是roberta
         bert, tokenizer = ablation.get_untrained_bert_model_and_tokenizer('bert-base-cased') # 区分大小写，和roberta-base保持一致
@@ -26,7 +24,7 @@ class Sector_bert_vanilla(Sector_2024):
     def forward(self, item): # 新增empty_title参数, 默认使用[PAD]填充title
         sentences = item['sentences']
         title = item['title']
-        token_ids, head_ids = encode_without_title(self.tokenizer, sentences, title)
+        token_ids, head_ids = main.encode_without_title(self.tokenizer, sentences)
         embeddings = get_embeddings(self.bert, token_ids, head_ids)
         binary_class_logits = self.classifier(embeddings) # size: (sentence_num, 2)
         return binary_class_logits

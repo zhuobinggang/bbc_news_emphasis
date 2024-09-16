@@ -96,6 +96,7 @@ def test_ablation():
     train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
 
 def test_add_module():
+    from main import Sector_2024
     from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
     from dataset_verify import final_dataset_need_devset
     from trainer import ModelWrapper, train_and_plot, Rouge_Logger
@@ -107,28 +108,56 @@ def test_add_module():
     assert model_wrapper.model.tokenizer.name_or_path == 'bert-base-cased'
     model_wrapper.set_meta(fold_index=0, repeat_index=999)
     logger = Rouge_Logger(model_wrapper.get_name())
-    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=20, logger=logger)
     # 测试Sector_bert_crf_on
     model_wrapper = ModelWrapper(Sector_bert_crf_on())
     assert model_wrapper.model.crf is not None
     assert model_wrapper.model.tokenizer.name_or_path == 'bert-base-cased'
     model_wrapper.set_meta(fold_index=0, repeat_index=999)
     logger = Rouge_Logger(model_wrapper.get_name())
-    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=20, logger=logger)
     # 测试Sector_bert_title_on
     model_wrapper = ModelWrapper(Sector_bert_title_on())
     assert model_wrapper.model.crf is None
     assert model_wrapper.model.tokenizer.name_or_path == 'bert-base-cased'
     model_wrapper.set_meta(fold_index=0, repeat_index=999)
     logger = Rouge_Logger(model_wrapper.get_name())
-    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=20, logger=logger)
     # 测试Sector_roberta_vanilla
     model_wrapper = ModelWrapper(Sector_roberta_vanilla())
     assert model_wrapper.model.crf is None
     assert model_wrapper.model.tokenizer.name_or_path == 'roberta-base'
     model_wrapper.set_meta(fold_index=0, repeat_index=999)
     logger = Rouge_Logger(model_wrapper.get_name())
-    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=30, logger=logger)
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=20, logger=logger)
+    # 测试Sector_2024
+    model_wrapper = ModelWrapper(Sector_2024())
+    assert model_wrapper.model.crf is not None
+    assert model_wrapper.model.tokenizer.name_or_path == 'roberta-base'
+    model_wrapper.set_meta(fold_index=0, repeat_index=999)
+    logger = Rouge_Logger(model_wrapper.get_name())
+    train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=10, total_step=20, logger=logger)
+
+def test_encode():
+    import numpy as np
+    from main import encode_with_title_and_sentences_truncate, encode_without_title, get_tokenizer
+    tokenizer = get_tokenizer('roberta-base')
+    sentences = ['This is a test sentence.', 'This is another test sentence.']
+    title = 'This is a test title.'
+    token_ids, head_ids = encode_with_title_and_sentences_truncate(tokenizer, sentences, title, empty_title=False)
+    token_ids = np.array(token_ids)
+    head_ids = np.array(head_ids)
+    print(tokenizer.decode(token_ids))
+    print(token_ids[token_ids])
+    token_ids, head_ids = encode_with_title_and_sentences_truncate(tokenizer, sentences, title, empty_title=True)
+    token_ids = np.array(token_ids)
+    head_ids = np.array(head_ids)
+    print(tokenizer.decode(token_ids))
+    print(token_ids[token_ids])
+    token_ids, head_ids = encode_without_title(tokenizer, sentences)
+    print(tokenizer.decode(token_ids))
+    token_ids = np.array(token_ids)
+    print(token_ids[head_ids])
 
 if __name__ == "__main__":  # {{ edit_2 }}
     main()  # {{ edit_3 }}

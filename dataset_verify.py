@@ -168,5 +168,22 @@ def log_too_long_articles(max_sentence_count = 50):  # 新增函数
         if longest_article_url:  # 如果存在最长文章的URL
             print(f"拥有最长句子数量的文章URL: {longest_article_url}, 最长句子数量: {max_sentences}")  # 输出最长文章的URL和句子数量
 
+# 平均句子数和强调句子数
+def dataset_info():
+    train_set, test_set = final_dataset()
+    articles = train_set + test_set
+    total_sentences = 0
+    total_emphasized_sentences = 0
+    article_count = len(articles)
+
+    for article in articles:
+        total_sentences += len(article['sentences'])
+        total_emphasized_sentences += sum(article['labels'])
+
+    avg_sentences = total_sentences / article_count if article_count > 0 else 0
+    avg_emphasized_sentences = total_emphasized_sentences / article_count if article_count > 0 else 0
+
+    return avg_sentences, avg_emphasized_sentences
+
 if __name__ == "__main__":
     data_verify()

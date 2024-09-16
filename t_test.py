@@ -31,11 +31,11 @@ def load_score_dict(file_name):
     with open(f't_test_results/{file_name}', 'r') as f:
         return json.load(f)
 
-def t_test():
+def t_test(classes):
     import numpy as np
-    from main import Sector_2024
-    from ablation import Sector_without_crf, Sector_without_title, Sector_without_roberta
-    classes = [Sector_2024, Sector_without_crf, Sector_without_title, Sector_without_roberta]
+    # from main import Sector_2024
+    # from ablation import Sector_without_crf, Sector_without_title, Sector_without_roberta
+    # classes = [Sector_2024, Sector_without_crf, Sector_without_title, Sector_without_roberta]
     score_dict = {}
     for class_func in classes:
         scores = [[], [], [], [], []]  # 用于存储每个fold的分数
@@ -75,10 +75,45 @@ def print_p_value(score_dict):
                 scores_2 = np.array(score_dict[class_func_2])
                 # use wilcoxon test
                 _, p_value = stats.wilcoxon(scores_1, scores_2)
-                row.append(f"{p_value:.3f}")
+                row.append(f"{p_value}")
             else:
                 row.append("-")  # 对角线填充 "-"
         print("| " + " | ".join(row) + " |")
 
+def t_test_ablation():
+    from main import Sector_2024
+    from ablation import Sector_without_crf, Sector_without_title, Sector_without_roberta
+    classes = [Sector_2024, Sector_without_crf, Sector_without_title, Sector_without_roberta]
+    t_test(classes)
+
+
+def t_test_add_modules():
+    from main import Sector_2024
+    from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
+    classes = [Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla, Sector_2024]
+    t_test(classes)
+
+def average_score_by_dataset_add_modules():
+    import numpy as np
+    from main import Sector_2024
+    from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
+    classes = [Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla, Sector_2024]
+    scores = np.zeros((5, 5, 3, 3))
+    for class_index, class_func in enumerate(classes):
+        for fold_index in range(5):
+            test_set = get_test_set(fold_index)
+            for repeat_index in range(3):
+                checkpoint = get_checkpoint(class_func, fold_index, repeat_index)
+                checkpoint.model.eval()
+                checkpoint.model.cuda()
+                rouges_score = checkpoint.calc_rouges(test_set)
+                scores[class_index, fold_index, repeat_index, 0] = rouges_score['rouge1']['fmeasure']
+                scores[class_index, fold_index, repeat_index, 1] = rouges_score['rouge2']['fmeasure']
+                scores[class_index, fold_index, repeat_index, 2] = rouges_score['rougeL']['fmeasure']
+    scores_mean_by_repeat = np.mean(scores, axis=2)
+    scores_mean_by_dataset = np.mean(scores_mean_by_repeat, axis=1)
+    print(scores_mean_by_dataset)
+    return scores_mean_by_dataset
+
 if __name__ == "__main__":
-    t_test()
+    t_test_add_modules()

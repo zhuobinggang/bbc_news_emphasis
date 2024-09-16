@@ -13,9 +13,9 @@ def run_with_model_class(model_classes):
                 print(model_wrapper.get_name())
                 logger = Rouge_Logger(model_wrapper.get_name())  # 添加日志记录器
                 # 训练模型并打印结果
-                train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=40, total_step=400, logger=logger)  # 添加logger参数
+                train_and_plot(model_wrapper, train_set, dev_set, test_set, batch_size=16, check_step=100, total_step=1000, logger=logger)  # 添加logger参数
 
-def run_all():
+def run_ablation():
     # 设置随机种子
     import numpy as np
     import torch
@@ -32,10 +32,13 @@ def run_add_modules():
     import torch
     torch.manual_seed(42)
     np.random.seed(42)
+    from main import Sector_2024
     from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
-    run_with_model_class([Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla])
+    run_with_model_class([Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla, Sector_2024])
 
 if __name__ == "__main__":  
-    run_add_modules() 
+    run_add_modules() # will create the logs and checkpoints
+    from t_test import t_test_add_modules
+    t_test_add_modules() # will save the result to file
     import os
     os.system('shutdown')
