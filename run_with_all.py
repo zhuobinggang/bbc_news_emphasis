@@ -36,9 +36,19 @@ def run_add_modules():
     from add_module import Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla
     run_with_model_class([Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla, Sector_2024])
 
+
+def run_add_modules_roberta():
+    import numpy as np
+    import torch
+    torch.manual_seed(42)
+    np.random.seed(42)
+    from add_module import Sector_roberta_crf_on, Sector_roberta_title_on
+    run_with_model_class([Sector_roberta_crf_on, Sector_roberta_title_on])
+
+
 if __name__ == "__main__":  
-    run_add_modules() # will create the logs and checkpoints
-    from t_test import t_test_add_modules
-    t_test_add_modules() # will save the result to file
+    run_add_modules_roberta() # will create the logs and checkpoints
+    from t_test import t_test_add_modules_roberta
+    t_test_add_modules_roberta() # will save the result to file
     import os
     os.system('shutdown')

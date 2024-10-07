@@ -98,3 +98,27 @@ class Sector_roberta_vanilla(Sector_bert_vanilla):
         self.name = 'roberta_vanilla'
 
 Sector_roberta_vanilla.__name__ = 'roberta_vanilla'
+
+
+# ==================== 2024.10.7 追加基于RoBERTa的实验 ==================
+
+class Sector_roberta_crf_on(Sector_bert_crf_on):
+    def init_bert(self):
+        from main import get_untrained_model_and_tokenizer
+        # 使用bert而不是roberta
+        bert, tokenizer = get_untrained_model_and_tokenizer('roberta-base') # 区分大小写，和roberta-base保持一致
+        self.bert = bert
+        self.tokenizer = tokenizer
+
+Sector_roberta_crf_on.__name__ = 'roberta_crf_on'
+
+
+class Sector_roberta_title_on(Sector_bert_title_on):
+    def init_bert(self):
+        from main import get_untrained_model_and_tokenizer
+        # 使用bert而不是roberta
+        bert, tokenizer = get_untrained_model_and_tokenizer('roberta-base') # 区分大小写，和roberta-base保持一致
+        self.bert = bert
+        self.tokenizer = tokenizer
+
+Sector_roberta_title_on.__name__ = 'roberta_title_on'

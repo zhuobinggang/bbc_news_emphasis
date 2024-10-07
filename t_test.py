@@ -93,6 +93,13 @@ def t_test_add_modules():
     classes = [Sector_bert_vanilla, Sector_bert_crf_on, Sector_bert_title_on, Sector_roberta_vanilla, Sector_2024]
     t_test(classes)
 
+
+def t_test_add_modules_roberta():
+    from main import Sector_2024
+    from add_module import Sector_roberta_vanilla, Sector_roberta_crf_on, Sector_roberta_title_on
+    classes = [Sector_roberta_vanilla, Sector_roberta_crf_on, Sector_roberta_title_on, Sector_2024]
+    t_test(classes)
+
 def average_score_by_dataset_add_modules():
     import numpy as np
     from main import Sector_2024
